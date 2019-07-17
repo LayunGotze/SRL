@@ -5,8 +5,8 @@ import pandas as pd
 
 #列名： 单词 左侧单词 右侧单词 当前词词性 左词词性 右词词性 谓语词 与谓语词的距离 srl标签
 csv_name = ["char", "left", "right", "pos", "lpos", "rpos", "rel", "dis", "label"]
-train_path="data/train.in"
-#train_path="data/validation.in"
+#train_path="data/train.in"
+train_path="data/validation.in" #暂时读取小文件
 
 def build_map(train_path):
     #读取训练文件，为单词、词性和SRL标注构建词典，并写入文件中
@@ -33,13 +33,13 @@ def build_map(train_path):
     id2label[0] = "<PAD>"
 
     #将组成字典写入文件
-    with open("char2id.in", "wb") as outfile:
+    with open("data/char2id.in", "wb") as outfile:
         for idx in id2char:
             outfile.write((id2char[idx] + "\t" + str(idx) + "\r\n").encode())
-    with open("pos2id.in", "wb") as outfile:
+    with open("data/pos2id.in", "wb") as outfile:
         for idx in id2pos:
             outfile.write((id2pos[idx] + "\t" + str(idx) + "\r\n").encode())
-    with open("label2id.in", "wb") as outfile:
+    with open("data/label2id.in", "wb") as outfile:
         for idx in id2label:
             outfile.write((id2label[idx] + "\t" + str(idx) + "\r\n").encode())
     
@@ -160,27 +160,70 @@ def prepare(chars, lefts, rights, poss, lposs, rposs, rels, diss, labels, seq_ma
     y = np.array(padding(y, seq_max_len))
     return X, X_left, X_right, X_pos, X_lpos, X_rpos, X_rel, X_dis, y
 
-char2id, id2char = load_map('data/char2id.in')
-pos2id, id2pos = load_map('data/pos2id.in')
-label2id, id2label = load_map('data/label2id.in')
 
-df_train = pd.read_csv(train_path, delimiter='\t', quoting=csv.QUOTE_NONE, skip_blank_lines=False, header=None, names=csv_name)
+def get_train(train_path):
+    char2id, id2char = load_map('data/char2id.in')
+    pos2id, id2pos = load_map('data/pos2id.in')
+    label2id, id2label = load_map('data/label2id.in')
 
-#将输入文件转换为id
-df_train["char_id"] = df_train.char.map(lambda x: -1 if str(x) == str(np.nan) else char2id[x])
-df_train["left_id"] = df_train.left.map(lambda x: -1 if str(x) == str(np.nan) else char2id[x])
-df_train["right_id"] = df_train.right.map(lambda x: -1 if str(x) == str(np.nan) else char2id[x])
-df_train["rel_id"] = df_train.rel.map(lambda x: -1 if str(x) == str(np.nan) else char2id[x])
+    df_train = pd.read_csv(train_path, delimiter='\t', quoting=csv.QUOTE_NONE, skip_blank_lines=False, header=None, names=csv_name)
 
-df_train["pos_id"] = df_train.pos.map(lambda x: -1 if str(x) == str(np.nan) else pos2id[x])
-df_train["lpos_id"] = df_train.lpos.map(lambda x: -1 if str(x) == str(np.nan) else pos2id[x])
-df_train["rpos_id"] = df_train.rpos.map(lambda x: -1 if str(x) == str(np.nan) else pos2id[x])
+    #将输入文件转换为id
+    df_train["char_id"] = df_train.char.map(lambda x: -1 if str(x) == str(np.nan) else char2id[x])
+    df_train["left_id"] = df_train.left.map(lambda x: -1 if str(x) == str(np.nan) else char2id[x])
+    df_train["right_id"] = df_train.right.map(lambda x: -1 if str(x) == str(np.nan) else char2id[x])
+    df_train["rel_id"] = df_train.rel.map(lambda x: -1 if str(x) == str(np.nan) else char2id[x])
 
-df_train["label_id"] = df_train.label.map(lambda x: -1 if str(x) == str(np.nan) else label2id[x])
+    df_train["pos_id"] = df_train.pos.map(lambda x: -1 if str(x) == str(np.nan) else pos2id[x])
+    df_train["lpos_id"] = df_train.lpos.map(lambda x: -1 if str(x) == str(np.nan) else pos2id[x])
+    df_train["rpos_id"] = df_train.rpos.map(lambda x: -1 if str(x) == str(np.nan) else pos2id[x])
+
+    df_train["label_id"] = df_train.label.map(lambda x: -1 if str(x) == str(np.nan) else label2id[x])
 
 
-seq_max_len=200
-X, X_left, X_right, X_pos, X_lpos, X_rpos, X_rel, X_dis, y = prepare(df_train["char_id"], df_train["left_id"], df_train["right_id"],
-        df_train["pos_id"], df_train["lpos_id"], df_train["rpos_id"],
-        df_train["rel_id"], df_train["dis"], df_train["label_id"], seq_max_len)
-print(X.shape)
+    seq_max_len=200
+    X, X_left, X_right, X_pos, X_lpos, X_rpos, X_rel, X_dis, y = prepare(df_train["char_id"], df_train["left_id"], df_train["right_id"],
+            df_train["pos_id"], df_train["lpos_id"], df_train["rpos_id"],
+            df_train["rel_id"], df_train["dis"], df_train["label_id"], seq_max_len,1000)
+    print(X.shape)
+
+    #打乱输入数据
+    num_samples = len(X)
+    indexs = np.arange(num_samples)
+    np.random.shuffle(indexs)
+    X = X[indexs]
+    X_left = X_left[indexs]
+    X_right = X_right[indexs]
+    X_pos = X_pos[indexs]
+    X_lpos = X_lpos[indexs]
+    X_rpos = X_rpos[indexs]
+    X_rel = X_rel[indexs]
+    X_dis = X_dis[indexs]
+    y = y[indexs]
+
+
+    #未处理验证集
+    X_train = X
+    X_left_train = X_left
+    X_right_train = X_right
+    X_pos_train = X_pos
+    X_lpos_train = X_lpos
+    X_rpos_train = X_rpos
+    X_rel_train = X_rel
+    X_dis_train = X_dis
+    y_train = y
+
+    train_data = {}
+    train_data['char'] = X_train
+    train_data['left'] = X_left_train
+    train_data['right'] = X_right_train
+    train_data['pos'] = X_pos_train
+    train_data['lpos'] = X_lpos_train
+    train_data['rpos'] = X_rpos_train
+    train_data['rel'] = X_rel_train
+    train_data['dis'] = X_dis_train
+    train_data['label'] = y_train
+    
+    return train_data
+
+get_train(train_path)
