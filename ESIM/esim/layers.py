@@ -166,10 +166,14 @@ class SoftmaxAttention(nn.Module):
         """
         # Dot product between premises and hypotheses in each sequence of
         # the batch.
+        #两句做矩阵乘法，得到两句词之间的attention矩阵,公式11
         similarity_matrix = premise_batch.bmm(hypothesis_batch.transpose(2, 1)
                                                               .contiguous())
-
+        
+        #print(premise_batch.shape,hypothesis_batch.shape,similarity_matrix.shape)
+        #print(similarity_matrix.shape,hypothesis_mask.shape)
         # Softmax attention weights.
+        #计算softmax,公式12，13的softmax部分
         prem_hyp_attn = masked_softmax(similarity_matrix, hypothesis_mask)
         hyp_prem_attn = masked_softmax(similarity_matrix.transpose(1, 2)
                                                         .contiguous(),
@@ -177,6 +181,7 @@ class SoftmaxAttention(nn.Module):
 
         # Weighted sums of the hypotheses for the the premises attention,
         # and vice-versa for the attention of the hypotheses.
+        #将softmax结果和encode的结果求和，公式12，13的求和部分，得到和输入shape相同的输出,attention部分
         attended_premises = weighted_sum(hypothesis_batch,
                                          prem_hyp_attn,
                                          premise_mask)

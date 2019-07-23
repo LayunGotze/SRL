@@ -70,16 +70,47 @@ class ESIM(nn.Module):
 
     def forward(self,
                 premises,
-                premises_lengths,):
-
+                premises_lengths,
+                hypotheses,
+                hypotheses_lengths):
+        #print(premises.shape)
+        #获取句子掩码，找出最长的句子对齐，有单词的部分为1，否则为0
         premises_mask = get_mask(premises, premises_lengths).to(self.device)
-
+        hypotheses_mask = get_mask(hypotheses, hypotheses_lengths).to(self.device)
+        #GLOVE做embedding
         embedded_premises = self._word_embedding(premises)
+        embedded_hypotheses = self._word_embedding(hypotheses)
+        #print(embedded_premises.shape)
 
         if self.dropout:
             embedded_premises = self._rnn_dropout(embedded_premises)
+            embedded_hypotheses = self._rnn_dropout(embedded_hypotheses)
+        #BiLSTM对输入做encode，要做pack_padded_sequence
+        encoded_premises = self._encoding(embedded_premises,premises_lengths)
+        encoded_hypotheses = self._encoding(embedded_hypotheses,hypotheses_lengths)
+        #print(encoded_premises.shape)
 
-        encoded_premises = self._encoding(embedded_premises,
-                                          premises_lengths)
+        attended_premises,attended_hypotheses=self._attention(encoded_premises, premises_mask, encoded_hypotheses, hypotheses_mask)
 
-        return encoded_premises
+        print(attended_premises.shape)
+
+        #将encode结果和attention结果连接，公式14，15，更好反映句间关系,最后一位变成4倍
+        enhanced_premises = torch.cat([encoded_premises,
+                                       attended_premises,
+                                       encoded_premises - attended_premises,
+                                       encoded_premises * attended_premises],
+                                      dim=-1)
+        enhanced_hypotheses = torch.cat([encoded_hypotheses,
+                                         attended_hypotheses,
+                                         encoded_hypotheses -
+                                         attended_hypotheses,
+                                         encoded_hypotheses *
+                                         attended_hypotheses],
+                                        dim=-1)
+        print(enhanced_premises.shape)
+
+        #使用全连接层
+        projected_premises = self._projection(enhanced_premises)
+        projected_hypotheses = self._projection(enhanced_hypotheses)
+        print(projected_premises.shape)
+        return attended_premises
