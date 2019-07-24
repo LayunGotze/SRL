@@ -92,7 +92,7 @@ class ESIM(nn.Module):
 
         attended_premises,attended_hypotheses=self._attention(encoded_premises, premises_mask, encoded_hypotheses, hypotheses_mask)
 
-        print(attended_premises.shape)
+        #print(attended_premises.shape)
 
         #将encode结果和attention结果连接，公式14，15，更好反映句间关系,最后一位变成4倍
         enhanced_premises = torch.cat([encoded_premises,
@@ -107,10 +107,39 @@ class ESIM(nn.Module):
                                          encoded_hypotheses *
                                          attended_hypotheses],
                                         dim=-1)
-        print(enhanced_premises.shape)
+        #print(enhanced_premises.shape)
 
         #使用全连接层
         projected_premises = self._projection(enhanced_premises)
         projected_hypotheses = self._projection(enhanced_hypotheses)
-        print(projected_premises.shape)
-        return attended_premises
+        #print(projected_premises.shape)
+
+        if self.dropout:
+            projected_premises = self._rnn_dropout(projected_premises)
+            projected_hypotheses = self._rnn_dropout(projected_hypotheses)
+
+        #composition层，依然是双向LSTM编码，公式16,17
+        v_ai = self._composition(projected_premises, premises_lengths)
+        v_bj = self._composition(projected_hypotheses, hypotheses_lengths)
+        #print(v_ai.shape)
+
+        #池化层，公式18，19
+        v_a_avg = torch.sum(v_ai * premises_mask.unsqueeze(1)
+                                                .transpose(2, 1), dim=1)\
+            / torch.sum(premises_mask, dim=1, keepdim=True)
+        v_b_avg = torch.sum(v_bj * hypotheses_mask.unsqueeze(1)
+                                                  .transpose(2, 1), dim=1)\
+            / torch.sum(hypotheses_mask, dim=1, keepdim=True)
+
+        v_a_max, _ = replace_masked(v_ai, premises_mask, -1e7).max(dim=1)
+        v_b_max, _ = replace_masked(v_bj, hypotheses_mask, -1e7).max(dim=1)
+        #公式20，最终组合为一个
+        v = torch.cat([v_a_avg, v_a_max, v_b_avg, v_b_max], dim=1)
+        #print(v.shape)
+
+        #MLP层，得到最终的分类结果
+        logits = self._classification(v)
+        probabilities = nn.functional.softmax(logits, dim=-1)
+        #print(logits.shape,probabilities.shape)
+        #print(logits)
+        return logits, probabilities

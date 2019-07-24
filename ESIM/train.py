@@ -9,8 +9,9 @@ from esim.data import NLIDataset
 import torch.nn as nn
 from tqdm import tqdm
 from esim.model import ESIM
+from esim.utils import correct_predictions
 
-batch_size=128
+batch_size=32
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # ------------------- Data loading ------------------- #
 """
@@ -48,6 +49,21 @@ model = ESIM(embeddings.shape[0],
                  num_classes=num_classes,
                  device=device).to(device)
 
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode="max",factor=0.5,patience=0)
+
+best_score = 0.0
+start_epoch = 1
+epochs_count = []
+train_losses = []
+valid_losses = []
+batch_time_avg = 0.0
+running_loss = 0.0
+correct_preds = 0
+#TODO checkpoint
+
+
 tqdm_batch_iterator = tqdm(valid_loader)
 for batch_index, batch in enumerate(tqdm_batch_iterator):
     premise=batch['premise'].to(device)
@@ -55,6 +71,16 @@ for batch_index, batch in enumerate(tqdm_batch_iterator):
     hypotheses = batch["hypothesis"].to(device)
     hypotheses_lengths = batch["hypothesis_length"].to(device)
     labels = batch["label"].to(device)
-    res=model(premise,premise_lengths,hypotheses,hypotheses_lengths)
+    optimizer.zero_grad()
 
-    break
+    logits, probs=model(premise,premise_lengths,hypotheses,hypotheses_lengths)
+
+    loss = criterion(logits, labels)
+    loss.backward()
+    running_loss += loss.item()
+    correct_preds += correct_predictions(probs, labels)
+    print(correct_preds)
+    description = "Avg. batch proc. time: {:.4f}s, loss: {:.4f}"\
+                    .format(batch_time_avg/(batch_index+1),
+                            running_loss/(batch_index+1))
+    tqdm_batch_iterator.set_description(description)

@@ -9,6 +9,24 @@ import torch.nn as nn
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # Code widely inspired from:
 # https://github.com/allenai/allennlp/blob/master/allennlp/nn/util.py.
+
+def correct_predictions(output_probabilities, targets):
+    """
+    Compute the number of predictions that match some target classes in the
+    output of a model.
+
+    Args:
+        output_probabilities: A tensor of probabilities for different output
+            classes.
+        targets: The indices of the actual target classes.
+
+    Returns:
+        The number of correct predictions in 'output_probabilities'.
+    """
+    _, out_classes = output_probabilities.max(dim=1)
+    correct = (out_classes == targets).sum()
+    return correct.item()
+    
 def sort_by_seq_lens(batch, sequences_lengths, descending=True):
     """
     Sort a batch of padded variable length sequences by their length.

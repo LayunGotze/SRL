@@ -201,6 +201,6 @@ def warmup_linear(x, warmup=0.002):
 
 processor=SnliProcessor()
 label_list = processor.get_labels()
-tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=True)
+tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
 model=BertForSequenceClassification.from_pretrained('bert-base-cased',num_labels = 3)
 train_examples = processor.get_train_examples('')
