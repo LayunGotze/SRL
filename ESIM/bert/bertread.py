@@ -14,6 +14,14 @@ from pytorch_pretrained_bert.tokenization import BertTokenizer
 from pytorch_pretrained_bert.modeling import BertForSequenceClassification
 from pytorch_pretrained_bert.optimization import BertAdam
 from pytorch_pretrained_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
+class InputFeatures(object):
+    """A single set of features of data."""
+
+    def __init__(self, input_ids, input_mask, segment_ids, label_id):
+        self.input_ids = input_ids
+        self.input_mask = input_mask
+        self.segment_ids = segment_ids
+        self.label_id = label_id
 
 class InputExample(object):
     """A single training/test example for simple sequence classification."""
@@ -155,16 +163,6 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
         assert len(segment_ids) == max_seq_length
 
         label_id = label_map[example.label]
-        if ex_index < 5:
-            logger.info("*** Example ***")
-            logger.info("guid: %s" % (example.guid))
-            logger.info("tokens: %s" % " ".join(
-                    [str(x) for x in tokens]))
-            logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-            logger.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-            logger.info(
-                    "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
-            logger.info("label: %s (id = %d)" % (example.label, label_id))
 
         features.append(
                 InputFeatures(input_ids=input_ids,
@@ -198,9 +196,18 @@ def warmup_linear(x, warmup=0.002):
     if x < warmup:
         return x/warmup
     return 1.0 - x
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 processor=SnliProcessor()
 label_list = processor.get_labels()
 tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
 model=BertForSequenceClassification.from_pretrained('bert-base-cased',num_labels = 3)
 train_examples = processor.get_train_examples('')
+model.to(device)
+train_features = convert_examples_to_features(
+            train_examples, label_list, 128, tokenizer)
+all_input_ids = torch.Tensor([f.input_ids for f in train_features], dtype=torch.long).to(device)
+all_input_mask = torch.Tensor([f.input_mask for f in train_features], dtype=torch.long).to(device)
+all_segment_ids = torch.Tensor([f.segment_ids for f in train_features], dtype=torch.long).to(device)
+all_label_ids = torch.Tensor([f.label_id for f in train_features], dtype=torch.long).to(device)
+res=model(all_input_ids, all_segment_ids, all_input_mask, all_label_ids)
+print(res)
