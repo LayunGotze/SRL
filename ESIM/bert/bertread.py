@@ -205,9 +205,12 @@ train_examples = processor.get_train_examples('')
 model.to(device)
 train_features = convert_examples_to_features(
             train_examples, label_list, 128, tokenizer)
-all_input_ids = torch.Tensor([f.input_ids for f in train_features], dtype=torch.long).to(device)
-all_input_mask = torch.Tensor([f.input_mask for f in train_features], dtype=torch.long).to(device)
-all_segment_ids = torch.Tensor([f.segment_ids for f in train_features], dtype=torch.long).to(device)
-all_label_ids = torch.Tensor([f.label_id for f in train_features], dtype=torch.long).to(device)
+
+all_input_ids = torch.tensor([f.input_ids for f in train_features], dtype=torch.long).to(device)
+
+all_input_mask = torch.tensor([f.input_mask for f in train_features]).to(device)
+all_segment_ids = torch.tensor([f.segment_ids for f in train_features]).to(device)
+all_label_ids = torch.tensor([f.label_id for f in train_features]).to(device)
 res=model(all_input_ids, all_segment_ids, all_input_mask, all_label_ids)
 print(res)
+

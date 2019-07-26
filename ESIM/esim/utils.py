@@ -80,7 +80,7 @@ def get_mask(sequences_batch, sequences_lengths):
     """
     batch_size = sequences_batch.size()[0]
     max_length = torch.max(sequences_lengths)
-    print("max length",max_length)
+    #print("max length",max_length)
     mask = torch.ones(batch_size, max_length, dtype=torch.float)
     mask[sequences_batch[:, :max_length] == 0] = 0.0
     return mask
